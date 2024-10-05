@@ -3,7 +3,7 @@ from ultralytics import YOLO
 
 def process_video(video_path):
     # Load the YOLO model
-    model = YOLO("yolo11m.pt")
+    model = YOLO("gold_fish.pt")
 
     # Retrieve class names directly from the model
     class_names = model.names
