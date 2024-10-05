@@ -17,11 +17,6 @@ def handle_connect():
     print('Client connected')
     socketio.start_background_task(process_video, 0)
 
-@socketio.on('message')
-def handle_message(data):
-    print('Received message:', data)
-    socketio.emit('response', 'Server received your message: ' + data)
-
 def process_video(video_path):
     # Load the YOLO model
     if torch.backends.mps.is_available():
