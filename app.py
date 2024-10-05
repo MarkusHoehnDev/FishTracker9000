@@ -56,6 +56,12 @@ def process_video(video_path):
             # Crop the frame
             cropped_frame = frame[y_start:y_start+new_height, x_start:x_start+new_width]
 
+            rect_x, rect_y = 0, 0 
+
+            rect_width, rect_height = 50, 105
+
+            cv2.rectangle(cropped_frame, (rect_x, rect_y), (rect_x + rect_width, rect_y + rect_height), (255, 255, 255), -1)
+
             # Run YOLO tracking on the frame, persisting tracks between frames
             results = model.track(cropped_frame, persist=True, tracker="botsort.yaml")
             
