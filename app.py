@@ -1,4 +1,4 @@
-import os
+import torch
 import cv2
 from ultralytics import YOLO
 from flask import Flask, render_template
@@ -22,14 +22,19 @@ def handle_message(data):
     print('Received message:', data)
     socketio.emit('response', 'Server received your message: ' + data)
 
-def process_video(video_stream):
+def process_video(video_path):
     # Load the YOLO model
-    model = YOLO("yolo11m.pt")
-
+    if torch.backends.mps.is_available():
+        device = 'mps'
+    else:
+        device = 'cpu'
+    model = YOLO("fish.pt").to(device) # yolov8s = 15 fps
+ 
     # Retrieve class names directly from the model
     class_names = model.names
 
-    cap = cv2.VideoCapture(video_stream)
+    # Open the video stream
+    cap = cv2.VideoCapture(video_path)
 
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
@@ -42,15 +47,26 @@ def process_video(video_stream):
         success, frame = cap.read()
 
         if success:
+            # Define the cropping region (ROI)
+            x_start = 497  # X-coordinate of the top-left corner of the crop
+            y_start = 477  # Y-coordinate of the top-left corner of the crop
+            new_width = 878  # Width of the crop
+            new_height = 435  # Height of the crop
+
+            # Crop the frame
+            cropped_frame = frame[y_start:y_start+new_height, x_start:x_start+new_width]
+
             # Run YOLO tracking on the frame, persisting tracks between frames
-            results = model.track(frame, persist=True, tracker="bytetrack.yaml")
+            results = model.track(cropped_frame, persist=True, tracker="botsort.yaml")
             
             # Visualize the results on the frame
             annotated_frame = results[0].plot()
+            
 
             # Loop through the results and emit details
             for result in results:
                 if result.boxes:
+                    socketio.emit('')
                     for box in result.boxes:
                         # Extract bounding box coordinates (xmin, ymin, xmax, ymax) and convert to regular float
                         coords = box.xyxy[0].cpu().numpy()
@@ -76,6 +92,9 @@ def process_video(video_stream):
                             'bbox': [xmin, ymin, xmax, ymax],
                             'track_id': track_id
                         })
+        # Break the loop if 'q' is pressed
+        if cv2.waitKey(1) & 0xFF == ord("q"):
+            break
 
     # Release the video capture object and close the display window
     cap.release()
