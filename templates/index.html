@@ -14,9 +14,13 @@
             console.log('Server says: ' + data);
         });
 
-        socket.on('class_name', function (data) {
-            console.log('Server detects: ' + data);
+        socket.on('detection', function (data) {
+            console.log('Detection - Object:', data.class_name);
+            console.log('Confidence:', data.confidence);
+            console.log('Bounding Box:', data.bbox);
+            console.log('Track ID:', data.track_id);
         });
+
 
         function sendMessage() {
             var message = document.getElementById('message').value;

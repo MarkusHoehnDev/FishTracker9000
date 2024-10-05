@@ -48,19 +48,19 @@ def process_video(video_stream):
             # Visualize the results on the frame
             annotated_frame = results[0].plot()
 
-            # Loop through the results and print bounding boxes, class names, confidence, and tracking ID
+            # Loop through the results and emit details
             for result in results:
                 if result.boxes:
                     for box in result.boxes:
-                        # Extract bounding box coordinates (xmin, ymin, xmax, ymax)
+                        # Extract bounding box coordinates (xmin, ymin, xmax, ymax) and convert to regular float
                         coords = box.xyxy[0].cpu().numpy()
-                        xmin, ymin, xmax, ymax = coords
+                        xmin, ymin, xmax, ymax = [float(coord) for coord in coords]
 
                         # Extract the class index and map it to the class name using model.names
                         obj_class = int(box.cls.cpu().numpy().item())
                         class_name = class_names.get(obj_class)
 
-                        # Extract the confidence score
+                        # Extract the confidence score and convert to regular float
                         confidence = float(box.conf.cpu().numpy().item())
 
                         # Extract the tracking ID (if available)
@@ -68,11 +68,14 @@ def process_video(video_stream):
 
                         # Print the details with class name
                         print(f"Object: {class_name}, Confidence: {confidence:.2f}, BBox: [{xmin}, {ymin}, {xmax}, {ymax}], ID: {track_id}")
-                        socketio.emit('class_name', class_name)
 
-        # Break the loop if 'q' is pressed
-        if cv2.waitKey(1) & 0xFF == ord("q"):
-            break
+                        # Emit all details to the client as a dictionary, ensuring all types are JSON-serializable
+                        socketio.emit('detection', {
+                            'class_name': class_name,
+                            'confidence': confidence,
+                            'bbox': [xmin, ymin, xmax, ymax],
+                            'track_id': track_id
+                        })
 
     # Release the video capture object and close the display window
     cap.release()
