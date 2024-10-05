@@ -47,8 +47,7 @@ def process_video(video_path):
                         confidence = float(box.conf.cpu().numpy().item())
 
                         # Extract the tracking ID (if available)
-                        track_id = int(box.id.cpu().numpy().item()) if box.id is not None else "No ID"
-
+                        track_id = int(box.id.cpu().numpy().item()) if box.id is not None else "No ID" 
                         # Print the details with class name
                         print(f"Object: {class_name}, Confidence: {confidence:.2f}, BBox: [{xmin}, {ymin}, {xmax}, {ymax}], ID: {track_id}")
 

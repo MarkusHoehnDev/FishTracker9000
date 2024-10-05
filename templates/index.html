@@ -14,6 +14,10 @@
             console.log('Server says: ' + data);
         });
 
+        socket.on('class_name', function (data) {
+            console.log('Server detects: ' + data);
+        });
+
         function sendMessage() {
             var message = document.getElementById('message').value;
             socket.emit('message', message);
