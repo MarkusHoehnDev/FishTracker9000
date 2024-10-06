@@ -1,6 +1,6 @@
 import cv2
 import torch
-from ultralytics import YOLO
+from ultralytics import YOLO, solutions
 import requests
 import time
 import numpy as np
@@ -20,10 +20,6 @@ def fetch_sensor_data():
         print(f"TDS: {data['tds']} ")
     except Exception as e:
         print(f"Error fetching sensor data: {e}")
-
-import cv2
-import torch
-from ultralytics import YOLO, solutions
 
 def process_video(video_path):
     # Load the YOLO model
