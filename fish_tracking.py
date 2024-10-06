@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
 from ultralytics import YOLO, solutions
-from PIL import Image, ImageTk
+from PIL import Image, ImageTk, ImageFile
 
 
 # Defaults
@@ -16,7 +16,9 @@ toggleStates = {
 
 RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors'
 
-def process_video(video_path, window, video_label):
+ImageFile.LOAD_TRUNCATED_IMAGES = True
+
+def process_video(video_label, window):
     # Load the YOLO model
     device = 'mps' if torch.backends.mps.is_available() else 'cpu'
     model = YOLO("fish.pt").to(device)
@@ -24,14 +26,14 @@ def process_video(video_path, window, video_label):
     # Retrieve class names directly from the model
     class_names = model.names
 
-    # Open the video stream
-    cap = cv2.VideoCapture(video_path)
+    # Open the webcam stream (0 is the default webcam)
+    cap = cv2.VideoCapture(0)
     heatmap_obj = solutions.Heatmap(colormap=cv2.COLORMAP_PARULA, shape="circle", names=model.names)
 
-    # Get video resolution
-    width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-    height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    print(f"Video stream resolution: {width}x{height}")
+    # Ensure webcam is opened
+    if not cap.isOpened():
+        print("Error: Unable to access webcam.")
+        return
 
     def update_frame():
         success, frame = cap.read()
@@ -64,16 +66,13 @@ def process_video(video_path, window, video_label):
                         track_id = int(box.id.cpu().numpy().item()) if box.id is not None else None
 
                         if track_id is not None:
-                            print(f"Object: {class_name}, Confidence: {confidence:.2f}, "
-                                  f"BBox: [{xmin}, {ymin}, {xmax}, {ymax}], ID: {track_id}")
-                            
                             if toggleStates["movementPatterns"]:
                                 pattern = get_patterns(c_curr, track_id)
                                 pre_p = c_curr
                                 for p in pattern[-50::5]:
                                     cv2.circle(cropped_frame, p, 3, (0, 255, 0), -1)
                                     if pre_p != c_curr:
-                                        cv2.line(cropped_frame, pre_p, p, (0, 255, 0), 1)
+                                        cv2.line(cropped_frame, pre_p, p, (0, 255, 0), 5)
                                     pre_p = p
 
             annotated_cropped_frame = results[0].plot(labels=False, probs=False) if toggleStates["boundingBoxes"] else cropped_frame
@@ -87,16 +86,33 @@ def process_video(video_path, window, video_label):
                                   (inner_x + inner_width, inner_y + inner_height), 
                                   color=(0, 0, 255), thickness=1, gap=5)
 
-            # Convert the frame to RGB for Tkinter
+            # Convert the frame to RGB for saving
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             img = Image.fromarray(frame_rgb)
+
+            # Save the image with the same file name, continuously updating it
+            annotated_frame = frame  # Assuming this is the final processed frame
+
+            # Convert the frame to RGB for Tkinter
+            frame_rgb = cv2.cvtColor(annotated_frame, cv2.COLOR_BGR2RGB)
+            img = Image.fromarray(frame_rgb)
+
+            # Get the size of the video label (for dynamic resizing)
+            label_width = video_label.winfo_width()
+            label_height = video_label.winfo_height()
+
+            # Preserve aspect ratio and resize the image to fit within the label
+            img.thumbnail((label_width, label_height), Image.Resampling.LANCZOS)
+
+            # Convert to ImageTk format
             imgtk = ImageTk.PhotoImage(image=img)
 
-            # Update the video_label widget
+            # Update the label with the new image
             video_label.imgtk = imgtk
             video_label.configure(image=imgtk)
 
-        # Schedule the next frame update
+
+        # Schedule the next frame update (30 FPS)
         window.after(1, update_frame)
 
     # Start the frame update loop
@@ -126,6 +142,7 @@ def draw_dotted_rectangle(img, pt1, pt2, color, thickness=1, gap=5):
     for y in range(y1, y2, gap*2):
         cv2.line(img, (x2, y), (x2, min(y+gap, y2)), color, thickness)
 
+
 def gui(window):
     window.tk.call('font', 'create', 'JetBrains Mono', '-family', 'JetBrains Mono', '-size', 10, '-weight', 'bold')
 
@@ -151,6 +168,9 @@ def gui(window):
     )
 
     canvas.place(x=0, y=0)
+
+    video_label = Label(window)
+    video_label.place(x=120, y=220, width=800, height=600)
 
     # Function to update toggle states
     def toggle_state(button_name):
@@ -294,10 +314,21 @@ def gui(window):
     canvas_tds = FigureCanvasTkAgg(fig_tds, master=window)
     canvas_tds.get_tk_widget().place(x=screen_width - 564, y=screen_height - 413, width=500, height=300)
 
+    canvas_temp.draw()
+    canvas_tds.draw()
+
+    current_temp_label = Label(window, text="Temp: 0 °C", font=("JetBrains Mono", 20), fg="white", bg="#2F3235")
+    current_temp_label.place(x=screen_width - 564 + 150, y=520, width=200, height=50)
+
+    current_tds_label = Label(window, text="TDS: 0 ppm", font=("JetBrains Mono", 20), fg="white", bg="#2F3235")
+    current_tds_label.place(x=screen_width - 564 + 150, y=580, width=200, height=50)
+
+    global temperature_data, tds_data
     temperature_data = []
     tds_data = []
 
     def fetch_sensor_data():
+        print("Being fetched")
         global temperature_data, tds_data
         try:
             response = requests.get(RASPBERRY_PI_API)
@@ -306,20 +337,25 @@ def gui(window):
             print(temperature)
             tds = float(data['tds'].replace('ppm', ''))  # Strip the 'ppm' from the value
 
+            # Update labels with current readings
+            current_temp_label.config(text=f"Temp: {temperature:.2f} °C")
+            current_tds_label.config(text=f"TDS: {tds:.2f} ppm")
+
             temperature_data.append(temperature)
             tds_data.append(tds)
-            
+
             if len(temperature_data) > 10:
-                del temperature_data[:1]  # Keep only the last 100 elements
-            
+                del temperature_data[:1]  # Keep only the last 10 elements
+
             if len(tds_data) > 10:
-                del tds_data[:1]  # Keep only the last 100 elements
+                del tds_data[:1]  # Keep only the last 10 elements
 
             update_graphs()
         except Exception as e:
             print(f"Error fetching sensor data: {e}")
 
     def update_graphs():
+        global temperature_data, tds_data  # Declare as global
         # Update temperature graph
         line_temp.set_data(range(len(temperature_data)), temperature_data)
         ax_temp.relim()  # Recalculate limits for y-axis
@@ -339,24 +375,17 @@ def gui(window):
             fetch_sensor_data()
             time.sleep(0.5)  # Rapid updates every 0.5 seconds
 
-    window.mainloop()
+    threading.Thread(target=process_video, args=(video_label, window), daemon=True).start()
 
+    threading.Thread(target=update_data, daemon=True).start()
+
+    window.mainloop()
 
 root = Tk()
 root.title("YOLO Fish Tracking")
-controller = Tk()
-controller.title("fishtracker9000")
 
-# Create a label to display the video
-video_label = Label(root)
-video_label.pack()
-
-# Start processing the video (0 for webcam, or provide video path)
-process_video(0, root, video_label)
-gui(controller)
-
-# Fetch sensor data every second in a separate thread
-# root.after(1000, fetch_sensor_data)
+# GUI setup with real-time video processing
+gui(root)
 
 # Start the Tkinter main loop
 root.mainloop()
