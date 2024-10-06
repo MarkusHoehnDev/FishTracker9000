@@ -25,10 +25,10 @@ if not os.path.exists("JetBrainsMono-Regular.ttf"):
 
 # Load the font into Tkinter
 font_dir = os.path.join(os.getcwd(), "JetBrainsMono-Regular.ttf")
-Tk().tk.call('font', 'create', 'JetBrains Mono', '-family', 'JetBrains Mono', '-size', 10, '-weight', 'bold')
 
 # Initialize window
 window = Tk()
+window.tk.call('font', 'create', 'JetBrains Mono', '-family', 'JetBrains Mono', '-size', 10, '-weight', 'bold')
 
 window.geometry("1440x900")
 window.configure(bg="#FFFFFF")
