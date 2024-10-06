@@ -35,7 +35,7 @@ window.configure(bg="#FFFFFF")
 
 canvas = Canvas(
     window,
-    bg="#FFFFFF",
+    bg="black",
     height=900,
     width=1440,
     bd=0,
@@ -116,11 +116,11 @@ ax_tds.set_title('TDS (ppm)', pad=0)
 
 # Create a canvas to embed the temperature graph
 canvas_temp = FigureCanvasTkAgg(fig_temp, master=window)
-canvas_temp.get_tk_widget().place(x=876, y=114, width=450, height=300)
+canvas_temp.get_tk_widget().place(x=876, y=114, width=470, height=300)
 
 # Create a canvas to embed the TDS graph
 canvas_tds = FigureCanvasTkAgg(fig_tds, master=window)
-canvas_tds.get_tk_widget().place(x=876, y=487, width=450, height=300)
+canvas_tds.get_tk_widget().place(x=876, y=487, width=470, height=300)
 
 temperature_data = []
 tds_data = []
