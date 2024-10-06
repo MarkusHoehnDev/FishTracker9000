@@ -31,7 +31,7 @@ def process_video(video_path):
 
     # Open the video stream
     cap = cv2.VideoCapture(video_path)
-    heatmap_obj = solutions.Heatmap(colormap=cv2.COLORMAP_PARULA, view_img=True, shape="circle", names=model.names)
+    heatmap_obj = solutions.Heatmap(colormap=cv2.COLORMAP_PARULA, shape="circle", names=model.names)
 
 
     # Get video resolution
