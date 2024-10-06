@@ -31,6 +31,25 @@
                     });
             }
         }
+        
+        const RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors';
+
+        async function fetchSensorData() {
+            try {
+                const response = await fetch(RASPBERRY_PI_API);
+                const data = await response.json();
+                console.log(data.temperature);
+                console.log(data.tds);
+            } catch (error) {
+                console.error('Error fetching sensor data:', error);
+            }
+        }
+
+        // Fetch sensor data every 1 second
+        setInterval(fetchSensorData, 1000);
+
+        // Initial fetch
+        fetchSensorData();
     </script>
 </head>
 <body onload="startWebcam()">
