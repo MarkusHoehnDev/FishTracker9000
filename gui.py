@@ -5,45 +5,109 @@ from tkinter import Tk, Canvas
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
+from tkinter import Button
 
 RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors'
 
-# Function to download and save the JetBrains Mono font
-def download_font():
-    font_url = "https://github.com/JetBrains/JetBrainsMono/raw/master/fonts/ttf/JetBrainsMono-Regular.ttf"
-    font_path = "JetBrainsMono-Regular.ttf"
-    
-    # Download the font file
-    response = requests.get(font_url)
-    
-    with open(font_path, "wb") as font_file:
-        font_file.write(response.content)
-
-# Check if the font is already downloaded, if not, download it
-if not os.path.exists("JetBrainsMono-Regular.ttf"):
-    download_font()
-
-# Load the font into Tkinter
-font_dir = os.path.join(os.getcwd(), "JetBrainsMono-Regular.ttf")
+# Global toggle states
+toggleStates = {
+    "boundingBoxes": True,
+    "movementPatterns": False,
+    "heatmap": False
+}
 
 # Initialize window
 window = Tk()
 window.tk.call('font', 'create', 'JetBrains Mono', '-family', 'JetBrains Mono', '-size', 10, '-weight', 'bold')
 
-window.geometry("1440x900")
+# Get current screen width and height
+screen_width = window.winfo_screenwidth()
+screen_height = window.winfo_screenheight()
+
+# Ensure the window maximizes to full screen
+window.attributes('-fullscreen', True)
+
+# Set window size to the screen's resolution
+window.geometry(f"{screen_width}x{screen_height}")
 window.configure(bg="#FFFFFF")
 
 canvas = Canvas(
     window,
     bg="black",
-    height=900,
-    width=1440,
+    height=screen_height,
+    width=screen_width,
     bd=0,
     highlightthickness=0,
     relief="ridge"
 )
 
 canvas.place(x=0, y=0)
+
+# Function to update toggle states
+def toggle_state(button_name):
+    global toggleStates
+    
+    # Update the clicked button's state
+    if button_name == "boundingBoxes":
+        toggleStates["boundingBoxes"] = not toggleStates["boundingBoxes"]
+    elif button_name == "movementPatterns":
+        toggleStates["movementPatterns"] = not toggleStates["movementPatterns"]
+    elif button_name == "heatmap":
+        toggleStates["heatmap"] = not toggleStates["heatmap"]
+    
+
+    print(toggleStates)
+    # Update the button styles
+    update_button_styles()
+
+
+
+# Function to update button styles based on the toggle states
+def update_button_styles():
+    if toggleStates["boundingBoxes"]:
+        bounding_box_button.config(bg="green", fg="black")
+    else:
+        bounding_box_button.config(bg="grey", fg="green")
+    
+    if toggleStates["movementPatterns"]:
+        movement_patterns_button.config(bg="green", fg="green")
+    else:
+        movement_patterns_button.config(bg="grey", fg="black")
+    
+    if toggleStates["heatmap"]:
+        heatmap_button.config(bg="green", fg="green")
+    else:
+        heatmap_button.config(bg="grey", fg="black")
+
+# Create buttons inside the rounded rectangle
+# The rectangle's coordinates are defined as (66, 73) to (screen_width - 66, screen_height - 73)
+rect_x_start = 100
+rect_y_start = screen_height - 113
+button_width = 300
+button_height = 100
+button_spacing = 20  # Space between buttons
+
+bounding_box_button = Button(
+    window, text="Bounding Boxes", font=("JetBrains Mono", 25), command=lambda: toggle_state("boundingBoxes"),
+    bg="green" if toggleStates["boundingBoxes"] else "grey", fg="red" if toggleStates["boundingBoxes"] else "black"
+)
+bounding_box_button.place(x=rect_x_start + 20, y=rect_y_start - button_height - 20, width=button_width, height=button_height)
+
+movement_patterns_button = Button(
+    window, text="Movement Patterns", font=("JetBrains Mono", 25), command=lambda: toggle_state("movementPatterns"),
+    bg="grey" if not toggleStates["movementPatterns"] else "green", fg="black" if not toggleStates["movementPatterns"] else "red"
+)
+movement_patterns_button.place(x=rect_x_start + button_width + button_spacing + 20, y=rect_y_start - button_height - 20, width=button_width, height=100)
+
+heatmap_button = Button(
+    window, text="Heatmap", font=("JetBrains Mono", 25), command=lambda: toggle_state("heatmap"),
+    bg="grey" if not toggleStates["heatmap"] else "green", fg="black" if not toggleStates["heatmap"] else "red"
+)
+heatmap_button.place(x=rect_x_start + 2 * (button_width + button_spacing) + 20, y=rect_y_start - button_height - 20, width=button_width, height=100)
+
+# Initial button style setup
+update_button_styles()
+
 
 def create_rounded_rectangle(canvas, x1, y1, x2, y2, r=30, **kwargs):
     """Create a rounded rectangle on the canvas with smoother corners."""
@@ -64,10 +128,10 @@ def create_rounded_rectangle(canvas, x1, y1, x2, y2, r=30, **kwargs):
     return canvas.create_polygon(points, **kwargs, smooth=True)
 
 # Rounded background rectangle
-create_rounded_rectangle(canvas, 0, 0, 1440, 900, r=50, fill="#000000", outline="")
+create_rounded_rectangle(canvas, 0, 0, screen_width, screen_height, r=50, fill="#000000", outline="")
 
-# Rounded main panel
-create_rounded_rectangle(canvas, 66, 73, 1374, 827, r=50, fill="#1E2120", outline="")
+# Adjust other elements based on the new screen resolution
+create_rounded_rectangle(canvas, 66, 73, screen_width - 66, screen_height - 73, r=50, fill="#1E2120", outline="")
 
 canvas.create_text(
     123.0,
@@ -88,20 +152,20 @@ canvas.create_text(
 )
 
 # Rounded smaller rectangles for graphs
-create_rounded_rectangle(canvas, 876, 487, 1275, 787, r=30, fill="#2F3235", outline="")
-create_rounded_rectangle(canvas, 876, 114, 1275, 414, r=30, fill="#2F3235", outline="")
+create_rounded_rectangle(canvas, screen_width - 564, screen_height - 413, screen_width - 165, screen_height - 113, r=30, fill="#2F3235", outline="")
+create_rounded_rectangle(canvas, screen_width - 564, 114, screen_width - 165, 414, r=30, fill="#2F3235", outline="")
 
 # Graph styling
 plt.rcParams.update({
     "font.family": "JetBrains Mono",
     "font.size": 6,
-    "axes.edgecolor": "#2F3235",
+    "axes.edgecolor": "#1E2120",
     "axes.linewidth": 0.6,
     "axes.labelcolor": "#FFFFFF",
     "xtick.color": "#FFFFFF",
     "ytick.color": "#FFFFFF",
     "text.color": "#FFFFFF",
-    "figure.facecolor": "#2F3235"
+    "figure.facecolor": "#1E2120"
 })
 
 # Create a matplotlib figure for the temperature graph
@@ -116,11 +180,11 @@ ax_tds.set_title('TDS (ppm)', pad=0)
 
 # Create a canvas to embed the temperature graph
 canvas_temp = FigureCanvasTkAgg(fig_temp, master=window)
-canvas_temp.get_tk_widget().place(x=876, y=114, width=470, height=300)
+canvas_temp.get_tk_widget().place(x=screen_width - 564, y=114, width=500, height=300)
 
 # Create a canvas to embed the TDS graph
 canvas_tds = FigureCanvasTkAgg(fig_tds, master=window)
-canvas_tds.get_tk_widget().place(x=876, y=487, width=470, height=300)
+canvas_tds.get_tk_widget().place(x=screen_width - 564, y=screen_height - 413, width=500, height=300)
 
 temperature_data = []
 tds_data = []
@@ -131,16 +195,18 @@ def fetch_sensor_data():
         response = requests.get(RASPBERRY_PI_API)
         data = response.json()
         temperature = float(data['temperature'].replace('°C', ''))  # Strip the '°C' from the value
+        print(temperature)
         tds = float(data['tds'].replace('ppm', ''))  # Strip the 'ppm' from the value
 
         temperature_data.append(temperature)
         tds_data.append(tds)
         
-        if len(temperature_data) > 100:
-            temperature_data.pop(0)
-        if len(tds_data) > 100:
-            tds_data.pop(0)
+        if len(temperature_data) > 10:
+            del temperature_data[:1]  # Keep only the last 100 elements
         
+        if len(tds_data) > 10:
+            del tds_data[:1]  # Keep only the last 100 elements
+
         update_graphs()
     except Exception as e:
         print(f"Error fetching sensor data: {e}")
@@ -148,14 +214,16 @@ def fetch_sensor_data():
 def update_graphs():
     # Update temperature graph
     line_temp.set_data(range(len(temperature_data)), temperature_data)
-    ax_temp.relim()
-    ax_temp.autoscale_view()
+    ax_temp.relim()  # Recalculate limits for y-axis
+    ax_temp.autoscale_view()  # Autoscale only the y-axis
+    ax_temp.get_xaxis().set_ticks([])  # Hide x-axis ticks and labels
     canvas_temp.draw()
 
     # Update TDS graph
     line_tds.set_data(range(len(tds_data)), tds_data)
-    ax_tds.relim()
-    ax_tds.autoscale_view()
+    ax_tds.relim()  # Recalculate limits for y-axis
+    ax_tds.autoscale_view()  # Autoscale only the y-axis
+    ax_tds.get_xaxis().set_ticks([])  # Hide x-axis ticks and labels
     canvas_tds.draw()
 
 def update_data():
@@ -166,5 +234,4 @@ def update_data():
 # Start the data fetching and updating process in a separate thread
 threading.Thread(target=update_data, daemon=True).start()
 
-window.resizable(False, False)
 window.mainloop()
