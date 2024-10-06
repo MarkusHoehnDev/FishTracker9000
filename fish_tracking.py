@@ -16,15 +16,6 @@ toggleStates = {
 
 RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors'
 
-def fetch_sensor_data():
-    try:
-        response = requests.get(RASPBERRY_PI_API)
-        data = response.json()
-        print(f"Temperature: {data['temperature']}")
-        print(f"TDS: {data['tds']} ")
-    except Exception as e:
-        print(f"Error fetching sensor data: {e}")
-
 def process_video(video_path, window, video_label):
     # Load the YOLO model
     device = 'mps' if torch.backends.mps.is_available() else 'cpu'
@@ -363,9 +354,6 @@ video_label.pack()
 # Start processing the video (0 for webcam, or provide video path)
 process_video(0, root, video_label)
 gui(controller)
-
-# Fetch sensor data every second in a separate thread
-root.after(1000, fetch_sensor_data)
 
 # Start the Tkinter main loop
 root.mainloop()
