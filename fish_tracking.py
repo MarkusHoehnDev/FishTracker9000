@@ -5,8 +5,9 @@ import requests
 import time
 import numpy as np
 
+# Defaults
 toggleStates = {
-    "boundingBoxes": False,
+    "boundingBoxes": True,
     "movementPatterns": False,
     "heatmap": False
 }
