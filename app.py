@@ -73,6 +73,15 @@ def process_video(video_path):
                         coords = box.xyxy[0].cpu().numpy()
                         xmin, ymin, xmax, ymax = [float(coord) for coord in coords]
 
+                        # Translate bounding box coordinates back to the original 1920x1080 frame
+                        xmin += x_start
+                        ymin += y_start
+                        xmax += x_start
+                        ymax += y_start
+                
+                        # Calculate the center of the bounding box (c_curr)
+                        c_curr = (int((xmin + xmax) / 2), int((ymin + ymax) / 2))
+
                         # Extract the class index and map it to the class name using model.names
                         obj_class = int(box.cls.cpu().numpy().item())
                         class_name = class_names.get(obj_class)
@@ -83,16 +92,23 @@ def process_video(video_path):
                         # Extract the tracking ID (if available)
                         track_id = int(box.id.cpu().numpy().item()) if box.id is not None else "No ID"
 
-                        # Print the details with class name
-                        print(f"Object: {class_name}, Confidence: {confidence:.2f}, BBox: [{xmin}, {ymin}, {xmax}, {ymax}], ID: {track_id}")
+                        # If track_id is None, skip drawing and storing movement patterns
+                        if track_id is not None:
+                            # Print the details with class name and track ID
+                            print(f"Object: {class_name}, Confidence: {confidence:.2f}, BBox: [{xmin}, {ymin}, {xmax}, {ymax}], ID: {track_id}")
 
-                        # Emit all details to the client as a dictionary, ensuring all types are JSON-serializable
-                        socketio.emit('detection', {
-                            'class_name': class_name,
-                            'confidence': confidence,
-                            'bbox': [xmin, ymin, xmax, ymax],
-                            'track_id': track_id
-                        })
+                            # Get the moving patterns of the tracked fish
+                            pattern = get_patterns(c_curr, track_id)  # Store pattern based on track_id
+                            pre_p = c_curr
+                        
+                            # Emit all details to the client as a dictionary, ensuring all types are JSON-serializable
+                            socketio.emit('detection', {
+                                'class_name': class_name,
+                                'confidence': confidence,
+                                'bbox': [xmin, ymin, xmax, ymax],
+                                'track_id': track_id,
+                                'pattern': pattern[-20::5] # Send only the last 50 points, skipping every 5th point
+                            })
         # Break the loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
@@ -100,6 +116,26 @@ def process_video(video_path):
     # Release the video capture object and close the display window
     cap.release()
     cv2.destroyAllWindows()
+
+
+# Function to store movement patterns of the tracked fish
+dict_tracks = {"Fish": {}}
+
+def get_patterns(center, track_id):
+    # Ensure the track ID is a string to prevent issues with dict keys
+    track_id = str(track_id)
+
+    # Check if this track_id already has a stored pattern
+    if track_id in dict_tracks["Fish"]:
+        dict_tracks["Fish"][track_id].append(center)
+    else:
+        dict_tracks["Fish"][track_id] = [center]
+
+    # Keep only the last 30 positions, remove older ones
+    if len(dict_tracks["Fish"][track_id]) > 30:
+        del dict_tracks["Fish"][track_id][:10]
+        
+    return dict_tracks["Fish"][track_id]
 
 if __name__ == '__main__':
     socketio.run(app, debug=True, port=8000)

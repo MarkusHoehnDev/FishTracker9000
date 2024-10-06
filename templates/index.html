@@ -10,11 +10,13 @@
             console.log('Connected to the server');
         });
 
+        
         socket.on('detection', function (data) {
             console.log('Detection - Object:', data.class_name);
             console.log('Confidence:', data.confidence);
             console.log('Bounding Box:', data.bbox);
             console.log('Track ID:', data.track_id);
+            console.log(`Movement Pattern: ${data.pattern}`);
         });
 
         function startWebcam() {
