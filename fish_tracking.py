@@ -9,7 +9,7 @@ def process_video(video_path):
     else:
         device = 'cpu'
     model = YOLO("fish.pt").to(device)  # Load your YOLO model
- 
+
     # Retrieve class names directly from the model
     class_names = model.names
 
@@ -26,10 +26,9 @@ def process_video(video_path):
         # Read a frame from the video
         success, frame = cap.read()
 
+        cv2.imwrite('frame.jpg', frame) 
+
         if success:
-
-            cv2.imwrite('frame.jpg', frame) 
-
             # Define the cropping region (ROI)
             x_start = 497  # X-coordinate of the top-left corner of the crop
             y_start = 477  # Y-coordinate of the top-left corner of the crop
@@ -45,7 +44,7 @@ def process_video(video_path):
             # Draw a white rectangle for visualization
             cv2.rectangle(cropped_frame, (rect_x, rect_y), (rect_x + rect_width, rect_y + rect_height), (255, 255, 255), -1)
 
-            # Run YOLO tracking on the frame, persisting tracks between frames
+            # Run YOLO tracking on the cropped frame
             results = model.track(cropped_frame, persist=True, tracker="botsort.yaml")
 
             # Loop through the results and extract bounding boxes, class names, confidence, and tracking ID
@@ -78,18 +77,24 @@ def process_video(video_path):
                             pattern = get_patterns(c_curr, track_id)  # Store pattern based on track_id
                             pre_p = c_curr
 
-                            # Draw the movement patterns on the frame
+                            # Draw the movement patterns on the cropped frame
                             for p in pattern[-20::5]:  # Skip every 5th frame to avoid clutter
                                 cv2.circle(cropped_frame, p, 3, (0, 255, 0), -1)  # Draw small circles at each point
                                 if pre_p != c_curr:
                                     cv2.line(cropped_frame, pre_p, p, (0, 255, 0), 1)  # Draw lines connecting points
                                 pre_p = p
 
-            # Visualize the results on the frame
-            annotated_frame = results[0].plot()
+            # Visualize the results on the cropped frame
+            annotated_cropped_frame = results[0].plot()
 
-            # Display the annotated frame
-            cv2.imshow("YOLO Tracking", annotated_frame)
+            # Overlay the annotated cropped frame back onto the original frame
+            frame[y_start:y_start+new_height, x_start:x_start+new_width] = annotated_cropped_frame
+
+            # Draw a dotted rectangle around the crop area on the original frame
+            draw_dotted_rectangle(frame, (x_start, y_start), (x_start + new_width, y_start + new_height), color=(0, 0, 255), thickness=1, gap=5)
+
+            # Display the full frame with annotations
+            cv2.imshow("YOLO Tracking", frame)
 
         # Break the loop if 'q' is pressed
         if cv2.waitKey(1) & 0xFF == ord("q"):
@@ -115,8 +120,25 @@ def get_patterns(center, track_id):
     # Keep only the last 30 positions, remove older ones
     if len(dict_tracks["Fish"][track_id]) > 30:
         del dict_tracks["Fish"][track_id][:10]
-        
+
     return dict_tracks["Fish"][track_id]
+
+def draw_dotted_rectangle(img, pt1, pt2, color, thickness=1, gap=5):
+    x1, y1 = pt1
+    x2, y2 = pt2
+
+    # Draw top edge
+    for x in range(x1, x2, gap*2):
+        cv2.line(img, (x, y1), (min(x+gap, x2), y1), color, thickness)
+    # Draw bottom edge
+    for x in range(x1, x2, gap*2):
+        cv2.line(img, (x, y2), (min(x+gap, x2), y2), color, thickness)
+    # Draw left edge
+    for y in range(y1, y2, gap*2):
+        cv2.line(img, (x1, y), (x1, min(y+gap, y2)), color, thickness)
+    # Draw right edge
+    for y in range(y1, y2, gap*2):
+        cv2.line(img, (x2, y), (x2, min(y+gap, y2)), color, thickness)
 
 # Define video path
 video_path = 0  # Use 0 for webcam, or path to a video file for video
