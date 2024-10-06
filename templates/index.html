@@ -4,6 +4,27 @@
 <head>
     <title>WebSocket with Webcam Example</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.js"></script>
+</head>
+
+<body onload="startWebcam()">
+    <h1>Fish View Below</h1>
+
+    <!-- Webcam Container -->
+    <div id="webcamContainer">
+        <video id="webcamVideo" width="640" height="480" autoplay></video>
+    </div>
+
+    <div>
+        <label for="toggle1">Toggle 1</label>
+        <input type="checkbox" id="toggle1" onclick="sendToggleStates()"><br>
+
+        <label for="toggle2">Toggle 2</label>
+        <input type="checkbox" id="toggle2" onclick="sendToggleStates()"><br>
+
+        <label for="toggle3">Toggle 3</label>
+        <input type="checkbox" id="toggle3" onclick="sendToggleStates()"><br>
+    </div>
+
     <script type="text/javascript">
         var socket = io.connect('http://' + document.domain + ':' + location.port);
 
@@ -11,13 +32,8 @@
             console.log('Connected to the server');
         });
 
-
         socket.on('detection', function (data) {
-            console.log('Detection - Object:', data.class_name);
-            console.log('Confidence:', data.confidence);
-            console.log('Bounding Box:', data.bbox);
-            console.log('Track ID:', data.track_id);
-            console.log(`Movement Pattern: ${data.pattern}`);
+
         });
 
         function startWebcam() {
@@ -32,8 +48,18 @@
                     });
             }
         }
-    </script>
-    <script>
+
+        // Function to send the current toggle states to the backend
+        function sendToggleStates() {
+            const toggleState = {
+                toggle1: document.getElementById('toggle1').checked,
+                toggle2: document.getElementById('toggle2').checked,
+                toggle3: document.getElementById('toggle3').checked,
+            };
+            console.log("Sending toggle states:", toggleState);
+            socket.emit('toggle_states', toggleState);
+        }
+
         // Replace with your Raspberry Pi's IP address
         const RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors';
 
@@ -48,21 +74,12 @@
             }
         }
 
-        // Fetch sensor data every 1 seconds
+        // Fetch sensor data every 1 second
         setInterval(fetchSensorData, 1000);
 
         // Initial fetch
         fetchSensorData();
     </script>
-</head>
-
-<body onload="startWebcam()">
-    <h1>Fish View Below</h1>
-
-    <!-- Webcam Container -->
-    <div id="webcamContainer">
-        <video id="webcamVideo" width="1920" height="1080" autoplay></video>
-    </div>
 </body>
 
 </html>
