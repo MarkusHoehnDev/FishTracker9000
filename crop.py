@@ -46,4 +46,4 @@ while True:
 cv2.destroyAllWindows()
 
 # Print the selected coordinates
-print(f"Selected crop coordinates: x_start={x_start}, y_start={y_start}, x_end={x_end}, y_end={y_end}")
+print(f"Selected crop coordinates: x_start={x_start}, y_start={y_start}, width={x_end-x_start}, height={y_end-y_start}")

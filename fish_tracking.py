@@ -1,98 +1,133 @@
 import cv2
 import torch
-from ultralytics import YOLO
+from ultralytics import YOLO, solutions
+import requests
+import time
+import numpy as np
+
+toggleStates = {
+    "boundingBoxes": False,
+    "movementPatterns": False,
+    "heatmap": False
+}
+
+RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors'
+
+def fetch_sensor_data():
+    try:
+        response = requests.get(RASPBERRY_PI_API)
+        data = response.json()
+        print(f"Temperature: {data['temperature']}")
+        print(f"TDS: {data['tds']} ")
+    except Exception as e:
+        print(f"Error fetching sensor data: {e}")
 
 def process_video(video_path):
     # Load the YOLO model
-    if torch.backends.mps.is_available():
-        device = 'mps'
-    else:
-        device = 'cpu'
-    model = YOLO("fish.pt").to(device)  # Load your YOLO model
+    device = 'mps' if torch.backends.mps.is_available() else 'cpu'
+    model = YOLO("fish.pt").to(device)
 
     # Retrieve class names directly from the model
     class_names = model.names
 
     # Open the video stream
     cap = cv2.VideoCapture(video_path)
+    heatmap_obj = solutions.Heatmap(colormap=cv2.COLORMAP_PARULA, shape="circle", names=model.names)
 
+
+    # Get video resolution
     width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-
     print(f"Video stream resolution: {width}x{height}")
 
-    # Loop through the video frames
+    # Loop through video frames
     while cap.isOpened():
-        # Read a frame from the video
         success, frame = cap.read()
 
-        # do not remove it helps for finding ROI
-        cv2.imwrite('frame.jpg', frame) 
+        # Save frame for reference (optional for finding ROI)
+        cv2.imwrite('frame.jpg', frame)
 
         if success:
-            # Define the cropping region (ROI)
-            x_start = 497  # X-coordinate of the top-left corner of the crop
-            y_start = 477  # Y-coordinate of the top-left corner of the crop
-            new_width = 878  # Width of the crop
-            new_height = 435  # Height of the crop
+            # Define the regions of interest (ROI) for YOLO processing
+            inner_x, inner_y, inner_width, inner_height = 514, 515, 894, 503
+            white_x, white_y, white_width, white_height = 514, 515, 38, 145
 
-            # Crop the frame
-            cropped_frame = frame[y_start:y_start+new_height, x_start:x_start+new_width]
+            # Create an untouched copy of the original frame
+            original_frame = frame.copy()
 
-            rect_x, rect_y = 0, 0
-            rect_width, rect_height = 50, 105
+            # Create a modified copy for YOLO processing
+            frame_copy = frame.copy()
 
-            # Draw a white rectangle for visualization
-            cv2.rectangle(cropped_frame, (rect_x, rect_y), (rect_x + rect_width, rect_y + rect_height), (255, 255, 255), -1)
+            # Fill the white chunk inside the inner rectangle to mask the sensors from being detected as fish lol
+            cv2.rectangle(frame_copy, (white_x, white_y), 
+                          (white_x + white_width, white_y + white_height), 
+                          (255, 255, 255), -1)  # fill with white
+
+            # Crop the inner rectangle for YOLO processing
+            cropped_frame = frame_copy[inner_y:inner_y + inner_height, 
+                                       inner_x:inner_x + inner_width]
 
             # Run YOLO tracking on the cropped frame
             results = model.track(cropped_frame, persist=True, tracker="botsort.yaml")
 
-            # Loop through the results and extract bounding boxes, class names, confidence, and tracking ID
+            # Loop through the results and extract details
             for result in results:
                 if result.boxes:
                     for box in result.boxes:
-                        # Extract bounding box coordinates (xmin, ymin, xmax, ymax)
+                        # Extract bounding box coordinates
                         coords = box.xyxy[0].cpu().numpy()
                         xmin, ymin, xmax, ymax = coords
-
-                        # Calculate the center of the bounding box (c_curr)
                         c_curr = (int((xmin + xmax) / 2), int((ymin + ymax) / 2))
 
-                        # Extract the class index and map it to the class name using model.names
+                        # Get class name and confidence
                         obj_class = int(box.cls.cpu().numpy().item())
                         class_name = class_names.get(obj_class)
-
-                        # Extract the confidence score
                         confidence = float(box.conf.cpu().numpy().item())
 
-                        # Extract the tracking ID (if available)
+                        # Get tracking ID if available
                         track_id = int(box.id.cpu().numpy().item()) if box.id is not None else None
 
-                        # If track_id is None, skip drawing and storing movement patterns
                         if track_id is not None:
-                            # Print the details with class name and track ID
-                            print(f"Object: {class_name}, Confidence: {confidence:.2f}, BBox: [{xmin}, {ymin}, {xmax}, {ymax}], ID: {track_id}")
+                            print(f"Object: {class_name}, Confidence: {confidence:.2f}, "
+                                  f"BBox: [{xmin}, {ymin}, {xmax}, {ymax}], ID: {track_id}")
+                            
+                            # If movement patterns toggle is active
+                            if toggleStates["movementPatterns"]:
+                                pattern = get_patterns(c_curr, track_id)
+                                pre_p = c_curr
 
-                            # Get the moving patterns of the tracked fish
-                            pattern = get_patterns(c_curr, track_id)  # Store pattern based on track_id
-                            pre_p = c_curr
-
-                            # Draw the movement patterns on the cropped frame
-                            for p in pattern[-20::5]:  # Skip every 5th frame to avoid clutter
-                                cv2.circle(cropped_frame, p, 3, (0, 255, 0), -1)  # Draw small circles at each point
-                                if pre_p != c_curr:
-                                    cv2.line(cropped_frame, pre_p, p, (0, 255, 0), 1)  # Draw lines connecting points
-                                pre_p = p
+                                # Draw movement patterns on the cropped frame
+                                for p in pattern[-50::5]:  # Skip every 5th frame
+                                    cv2.circle(cropped_frame, p, 3, (0, 255, 0), -1)
+                                    if pre_p != c_curr:
+                                        cv2.line(cropped_frame, pre_p, p, (0, 255, 0), 1)
+                                    pre_p = p
 
             # Visualize the results on the cropped frame
-            annotated_cropped_frame = results[0].plot()
+            if toggleStates["boundingBoxes"] and results[0].boxes:
+                # If bounding boxes are enabled, draw them
+                annotated_cropped_frame = results[0].plot(labels=False, probs=False)
+            else:
+                # Otherwise, retain the unannotated cropped frame
+                annotated_cropped_frame = cropped_frame
 
-            # Overlay the annotated cropped frame back onto the original frame
-            frame[y_start:y_start+new_height, x_start:x_start+new_width] = annotated_cropped_frame
+            # Check for heatmap toggle
+            if toggleStates["heatmap"]:
+                # Apply the heatmap on the current frame, regardless of bounding boxes
+                annotated_cropped_frame = np.ascontiguousarray(annotated_cropped_frame)
+                annotated_cropped_frame = heatmap_obj.generate_heatmap(annotated_cropped_frame, results)
 
-            # Draw a dotted rectangle around the crop area on the original frame
-            draw_dotted_rectangle(frame, (x_start, y_start), (x_start + new_width, y_start + new_height), color=(0, 0, 255), thickness=1, gap=5)
+
+            # Overlay the annotated cropped frame back onto the original full frame
+            frame[inner_y:inner_y + inner_height, inner_x:inner_x + inner_width] = annotated_cropped_frame
+
+            # Restore the white chunk area from the original (untouched) frame
+            frame[white_y:white_y + white_height + 1, white_x:white_x + white_width + 1] = original_frame[white_y:white_y + white_height + 1, white_x:white_x + white_width + 1]
+
+            # Draw dotted rectangle around the inner rectangle (optional)
+            draw_dotted_rectangle(frame, (inner_x, inner_y), 
+                                  (inner_x + inner_width, inner_y + inner_height), 
+                                  color=(0, 0, 255), thickness=1, gap=5)
 
             # Display the full frame with annotations
             cv2.imshow("YOLO Tracking", frame)
@@ -101,9 +136,10 @@ def process_video(video_path):
         if cv2.waitKey(1) & 0xFF == ord("q"):
             break
 
-    # Release the video capture object and close the display window
+    # Release resources
     cap.release()
     cv2.destroyAllWindows()
+
 
 # Function to store movement patterns of the tracked fish
 dict_tracks = {"Fish": {}}
@@ -119,7 +155,7 @@ def get_patterns(center, track_id):
         dict_tracks["Fish"][track_id] = [center]
 
     # Keep only the last 30 positions, remove older ones
-    if len(dict_tracks["Fish"][track_id]) > 30:
+    if len(dict_tracks["Fish"][track_id]) > 60:
         del dict_tracks["Fish"][track_id][:10]
 
     return dict_tracks["Fish"][track_id]
@@ -141,8 +177,10 @@ def draw_dotted_rectangle(img, pt1, pt2, color, thickness=1, gap=5):
     for y in range(y1, y2, gap*2):
         cv2.line(img, (x2, y), (x2, min(y+gap, y2)), color, thickness)
 
-# Define video path
-video_path = 0  # Use 0 for webcam, or path to a video file for video
+process_video(0)
 
-# Process the video
-process_video(video_path)
+if __name__ == "__main__":
+    # Fetch sensor data every 1 second
+    while True:
+        fetch_sensor_data()
+        time.sleep(1)
