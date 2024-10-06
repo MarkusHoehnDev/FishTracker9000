@@ -79,7 +79,7 @@ def process_video(video_path):
                             pre_p = c_curr
 
                             # Draw the movement patterns on the cropped frame
-                            for p in pattern[-20::5]:  # Skip every 5th frame to avoid clutter
+                            for p in pattern[-50::5]:  # Skip every 5th frame to avoid clutter
                                 cv2.circle(cropped_frame, p, 3, (0, 255, 0), -1)  # Draw small circles at each point
                                 if pre_p != c_curr:
                                     cv2.line(cropped_frame, pre_p, p, (0, 255, 0), 1)  # Draw lines connecting points
@@ -119,7 +119,7 @@ def get_patterns(center, track_id):
         dict_tracks["Fish"][track_id] = [center]
 
     # Keep only the last 30 positions, remove older ones
-    if len(dict_tracks["Fish"][track_id]) > 30:
+    if len(dict_tracks["Fish"][track_id]) > 60:
         del dict_tracks["Fish"][track_id][:10]
 
     return dict_tracks["Fish"][track_id]
