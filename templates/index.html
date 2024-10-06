@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>WebSocket with Webcam Example</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/3.1.3/socket.io.js"></script>
@@ -10,7 +11,7 @@
             console.log('Connected to the server');
         });
 
-        
+
         socket.on('detection', function (data) {
             console.log('Detection - Object:', data.class_name);
             console.log('Confidence:', data.confidence);
@@ -32,13 +33,36 @@
             }
         }
     </script>
+    <script>
+        // Replace with your Raspberry Pi's IP address
+        const RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors';
+
+        async function fetchSensorData() {
+            try {
+                const response = await fetch(RASPBERRY_PI_API);
+                const data = await response.json();
+                console.log(data.temperature);
+                console.log(data.tds);
+            } catch (error) {
+                console.error('Error fetching sensor data:', error);
+            }
+        }
+
+        // Fetch sensor data every 1 seconds
+        setInterval(fetchSensorData, 1000);
+
+        // Initial fetch
+        fetchSensorData();
+    </script>
 </head>
+
 <body onload="startWebcam()">
     <h1>Fish View Below</h1>
-    
+
     <!-- Webcam Container -->
     <div id="webcamContainer">
-        <video id="webcamVideo" width="640" height="480" autoplay></video>
+        <video id="webcamVideo" width="1920" height="1080" autoplay></video>
     </div>
 </body>
+
 </html>
