@@ -4,10 +4,11 @@ from ultralytics import YOLO, solutions
 import requests
 import time
 import numpy as np
+
 toggleStates = {
     "boundingBoxes": False,
-    "movementPatterns": True,
-    "heatmap": True
+    "movementPatterns": False,
+    "heatmap": False
 }
 
 RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors'
