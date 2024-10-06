@@ -1,5 +1,5 @@
 import os, requests, time, cv2, torch, numpy as np
-from tkinter import Tk, Canvas, Button, Label
+from tkinter import Tk, Canvas, Button, Label, PhotoImage
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
 import threading
@@ -12,7 +12,7 @@ toggleStates = {
     "boundingBoxes": True,
     "movementPatterns": False,
     "heatmap": False,
-    "zoom": True 
+    "zoom": False 
 }
 
 RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors'
@@ -219,6 +219,20 @@ def gui(window):
     button_width = 300
     button_height = 100
     button_spacing = 20  # Space between buttons
+
+    # Add this function to toggle the zoom state
+    def toggle_zoom():
+        toggleStates["zoom"] = not toggleStates["zoom"]
+        if toggleStates["zoom"]:
+            zoom_button.config(bg="green", text="+")
+        else:
+            zoom_button.config(bg="red", text="-")
+
+# Inside the gui function (after defining other buttons), add this block of code
+
+# Create a simple toggle button for zoom
+    zoom_button = Button(window, text="-", font=("JetBrains Mono", 25), command=toggle_zoom, bg="red", fg="black")
+    zoom_button.place(x=850, y=230, width=50, height=50)
 
     bounding_box_button = Button(
         window, text="Bounding Boxes", font=("JetBrains Mono", 25), command=lambda: toggle_state("boundingBoxes"),
