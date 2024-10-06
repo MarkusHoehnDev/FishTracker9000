@@ -1,7 +1,7 @@
 import cv2
 
 # Load the saved frame
-image_path = 'first_frame.jpg'
+image_path = 'frame.jpg'
 img = cv2.imread(image_path)
 
 # Initialize variables for cropping

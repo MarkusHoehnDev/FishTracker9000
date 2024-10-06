@@ -27,6 +27,9 @@ def process_video(video_path):
         success, frame = cap.read()
 
         if success:
+
+            cv2.imwrite('frame.jpg', frame) 
+
             # Define the cropping region (ROI)
             x_start = 497  # X-coordinate of the top-left corner of the crop
             y_start = 477  # Y-coordinate of the top-left corner of the crop
