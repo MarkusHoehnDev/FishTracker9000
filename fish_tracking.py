@@ -355,5 +355,8 @@ video_label.pack()
 process_video(0, root, video_label)
 gui(controller)
 
+# Fetch sensor data every second in a separate thread
+# root.after(1000, fetch_sensor_data)
+
 # Start the Tkinter main loop
 root.mainloop()
