@@ -11,7 +11,8 @@ from PIL import Image, ImageTk, ImageFile
 toggleStates = {
     "boundingBoxes": True,
     "movementPatterns": False,
-    "heatmap": False
+    "heatmap": False,
+    "zoom": True 
 }
 
 RASPBERRY_PI_API = 'http://10.9.208.223:5000/sensors'
@@ -83,8 +84,12 @@ def process_video(video_label, window):
             frame[inner_y:inner_y + inner_height, inner_x:inner_x + inner_width] = annotated_cropped_frame
             frame[white_y:white_y + white_height + 1, white_x:white_x + white_width + 1] = original_frame[white_y:white_y + white_height + 1, white_x:white_x + white_width + 1]
             draw_dotted_rectangle(frame, (inner_x, inner_y), 
-                                  (inner_x + inner_width, inner_y + inner_height), 
-                                  color=(0, 0, 255), thickness=1, gap=5)
+                                (inner_x + inner_width, inner_y + inner_height), 
+                                color=(0, 0, 255), thickness=1, gap=5)
+            
+            if toggleStates["zoom"]:
+                frame = frame[inner_y:inner_y + inner_height, 
+                                       inner_x:inner_x + inner_width]
 
             # Convert the frame to RGB for saving
             frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
